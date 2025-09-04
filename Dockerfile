@@ -1,14 +1,21 @@
-# Sử dụng image Tomcat 11 chính thức
-FROM tomcat:11-jdk17
+# ---- Stage 1: Build WAR with Maven ----
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /app
 
-# Xóa các app mặc định của Tomcat (ROOT, docs, examples…)
+# Copy pom + src để Maven có thể build
+COPY pom.xml .
+COPY src ./src
+
+# Build, bỏ test cho nhanh
+RUN mvn -B -DskipTests package
+
+# ---- Stage 2: Runtime on Tomcat 11 ----
+FROM tomcat:11-jdk17
+# Xóa webapps mặc định
 RUN rm -rf /usr/local/tomcat/webapps/*
 
-# Copy file WAR đã build từ Maven vào thư mục webapps/ROOT.war
-COPY target/SurveyWebApp-1.0-SNAPSHOT.war /usr/local/tomcat/webapps/ROOT.war
+# Copy WAR đã build thành ROOT.war (dù tên thật là gì)
+COPY --from=build /app/target/*.war /usr/local/tomcat/webapps/ROOT.war
 
-# Expose cổng 8080
 EXPOSE 8080
-
-# Khởi động Tomcat
 CMD ["catalina.sh", "run"]
